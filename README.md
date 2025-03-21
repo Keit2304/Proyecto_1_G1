@@ -1,2 +1,2 @@
-# Proyecto_1_G16
+# Proyecto_1_G1
 Proyecto 1 - LABORATORIO ARQUITECTURA DE COMPUTADORES Y ENSAMBLADORES 1 Sección A - Grupo #16
