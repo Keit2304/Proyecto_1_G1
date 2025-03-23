@@ -1,13 +1,15 @@
+import os
 import RPi.GPIO as GPIO
 import paho.mqtt.client as paho
 import threading
 import time
 
 from paho import mqtt
+from RPLCD.i2c import CharLCD  # Agrega esta línea
 
-# from send_to_mongo import connect_to_mongo, registrar_densidad
 
-#source mqtt-venv/bin/activate
+from send_to_mongo import connect_to_mongo, registrar_densidad
+from twilio.rest import Client  # Agrega esta línea
 
 
 # Topicos
@@ -17,15 +19,15 @@ TOPIC_ALERT_SEMAFORO3 = "arqui1/rasp-3/alert/"  # Tema al que publicar los estad
 TOPIC_REINICIAR_SEMAFOROS = 'arqui1/rasp-reiniciar' # Tema para suscribirse al reiniciar semaforos
 CLIENT_ID = "raspberry_pi_control"
 
-#collection = connect_to_mongo() # coleccion de densidad_vehicular
+collection = connect_to_mongo() # coleccion de densidad_vehicular
 
 # Configuración de los pines GPIO
 GPIO.setmode(GPIO.BCM)
 
 # Pines de los botones
-boton_stop_pin1 = 2 # Pin del boton para detener el semaforo 1, equivale al pin GPIO 2
-boton_stop_pin2 = 3 # Pin del boton para detener el semaforo 2, equivale al pin GPIO 3
-boton_stop_pin3 = 4 # Pin del boton para detener el semaforo 3, equivale al pin GPIO 4
+boton_stop_pin1 = 2
+boton_stop_pin2 = 3
+boton_stop_pin3 = 4
 
 # Pines de los semáforos
 sensor_pin = 18
@@ -33,10 +35,8 @@ sensor_pin = 18
 # Pines LED's RGB
 semaforo1_red_pin = 17
 semaforo1_green_pin = 27
-
 semaforo2_red_pin = 21
 semaforo2_green_pin = 20
-
 semaforo3_red_pin = 26
 semaforo3_green_pin = 19
 
@@ -55,6 +55,26 @@ GPIO.setup(sensor_pin, GPIO.IN)
 GPIO.setup(boton_stop_pin1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(boton_stop_pin3, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(boton_stop_pin2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+
+# ... (otras importaciones y configuraciones)
+
+# Inicializa la LCD
+try:
+    lcd = CharLCD('PCF8574', address=0x27, port=1, charmap='A02', cols=16, rows=2)
+except Exception as e:
+    print(f"Error al inicializar la LCD: {e}")
+    lcd = None
+# ... (otras importaciones y configuraciones)
+
+# Credenciales de Twilio (usa variables de entorno)
+account_sid = os.environ.get('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+auth_token = os.environ.get('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+twilio_phone_number = os.environ.get('')  # Tu número de Twilio
+your_phone_number = ""  # El número al que quieres llamar
+
+# Inicializa el cliente de Twilio
+client_twilio = Client(account_sid, auth_token) if account_sid and auth_token else None
 
 # Variables de control
 stop_event = threading.Event() # Evento para poder manejar el ciclo de los semaforos parar/reiniciar
@@ -86,21 +106,50 @@ def set_color_pwm(pwm_red, pwm_green, red, green):
 # Función para detener el ciclo y poner todos los semáforos en rojo
 # parametro channel se envia por defecto, y es el pin desde donde se activo
 def stop_semaforos(channel):
-    if channel == 2:
-        client.publish(TOPIC_ALERT_SEMAFORO1, 'ALERT') # Enviar alerta al topico conrrespondiente
-    if channel == 3:
-        client.publish(TOPIC_ALERT_SEMAFORO2, 'ALERT') # Enviar alerta al topico conrrespondiente
-    elif channel == 4:
-        client.publish(TOPIC_ALERT_SEMAFORO3, 'ALERT') # Enviar alerta al topico conrrespondiente
+    global client_twilio, twilio_phone_number, your_phone_number, lcd #variables globales
+    message_lcd = "" #variable para almacenar el mensaje del lcd
+    if channel == boton_stop_pin1:
+        client.publish(TOPIC_ALERT_SEMAFORO1, 'ALERT')
+        message_body = "Alerta: Semáforo 1 detenido manualmente."
+        message_lcd = "Semaforo 1 detenido"
+    elif channel == boton_stop_pin2:
+        client.publish(TOPIC_ALERT_SEMAFORO2, 'ALERT')
+        message_body = "Alerta: Semáforo 2 detenido manualmente."
+        message_lcd = "Semaforo 2 detenido"
+    elif channel == boton_stop_pin3:
+        client.publish(TOPIC_ALERT_SEMAFORO3, 'ALERT')
+        message_body = "Alerta: Semáforo 3 detenido manualmente."
+        message_lcd = "Semaforo 3 detenido"
+    else:
+        return # sale de la funcion si no coincide con ningun boton
 
-    stop_event.set() # Cambia el estado del evento a TRUE
+    stop_event.set()
     print("Ciclo detenido: Todos los semáforos en rojo")
     # Semaforos en rojo
     set_color_pwm(pwm1_red, pwm1_green, 100, 0)
     set_color_pwm(pwm2_red, pwm2_green, 100, 0)
     set_color_pwm(pwm3_red, pwm3_green, 100, 0)
-    
-    
+
+    # Realizar la llamada de Twilio
+    if client_twilio and twilio_phone_number and your_phone_number:
+        try:
+            call = client_twilio.calls.create(
+                to=your_phone_number,
+                from_=twilio_phone_number,
+                twiml=f'<Response><Say>{message_body}</Say></Response>'
+            )
+            print(f"Llamada Twilio iniciada. SID: {call.sid}")
+        except Exception as e:
+            print(f"Error al iniciar la llamada Twilio: {e}")
+    else:
+        print("Credenciales de Twilio no configuradas correctamente.")
+    # Mostrar mensaje en la LCD
+    if lcd:
+        try:
+            lcd.clear()
+            lcd.write_string(message_lcd)
+        except Exception as e:
+            print(f"Error al escribir en la LCD: {e}")
 
 # Función para reiniciar el ciclo
 def restart_semaforos_broker():
@@ -119,8 +168,8 @@ def restart_semaforos(channel):
 # Asociar botones con eventos
 # pinbtn, flanco que detecta, funcion a ejecutar, tiempo para evitar rebote milisegundos
 GPIO.add_event_detect(boton_stop_pin1, GPIO.RISING, callback=stop_semaforos, bouncetime=300)
-GPIO.add_event_detect(boton_stop_pin2, GPIO.RISING, callback=stop_semaforos, bouncetime=300) #3
-GPIO.add_event_detect(boton_stop_pin3, GPIO.RISING, callback=stop_semaforos, bouncetime=300) #4
+GPIO.add_event_detect(boton_stop_pin2, GPIO.RISING, callback=stop_semaforos, bouncetime=300)
+GPIO.add_event_detect(boton_stop_pin3, GPIO.RISING, callback=restart_semaforos, bouncetime=300)
 
 # Función para el ciclo de semáforos con interrupciones
 def ciclo_semaforos():
@@ -247,9 +296,9 @@ client.on_message = on_message # Cuando recibe un mensaje de las suscripciones
 # Habilitar TLS para conexión segura
 client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
 # Configurar las credenciales para HiveMQ Cloud
-client.username_pw_set("Josue", "Usac2025") # Colocar sus datos
+client.username_pw_set("nombre_usuario", "contraseña") # Colocar sus datos
 # Conectar a HiveMQ Cloud
-client.connect("ec99a16a62004993833c6f8de56a05b7.s1.eu.hivemq.cloud", 8883) # Colocar su url del cluster en HiveMQ
+client.connect("", 8883) # Colocar su url del cluster en HiveMQ
 
 # Iniciar el bucle de comunicación MQTT
 client.loop_start()
