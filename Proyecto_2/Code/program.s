@@ -15,7 +15,7 @@ header:
     .ascii "Escuela de Ciencias y Sistemas\n"
     .ascii "Arquitectura de Computadores y Ensambladores 1\n"
     .ascii "Sección A\n"
-    .ascii "Nombre del estudiante - Carnet\n"
+    .ascii "Javier Matías - 202000896\n"
     .ascii "Grupo 1\n\n"
     .ascii "Presione ENTER para continuar...\n"
 header_len = . - header
@@ -99,6 +99,8 @@ exit_msg_len = . - exit_msg
 msg_resultado: 
     .asciz "El resultado de la operacion es: "
     lenMsgResultado = .- msg_resultado
+
+
 
 value:  .asciz "00000000000000000000"
     lenValue = .- value // Se encargara de guardar los valores a imprimir en pantalla luego de una operacion (20 Espacios)
@@ -357,11 +359,78 @@ verificarOperacion:
     CMP w20, #'*'          // Compara el carácter con '-'
     BEQ fin_verificar_intermedia 
 
+    MOV w4, 4 // w4=2 operaciion "-" encontrada
+    CMP w20, #'>'          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+
+    MOV w4, 5 // w4=2 operaciion "-" encontrada
+    CMP w20, #'<'          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+
+    MOV w4, 6 // w4=2 operaciion "-" encontrada
+    CMP w20, #'^'          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+
+    MOV w4, 7 // w4=2 operaciion "-" encontrada
+    CMP w20, #'!'          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+
+    MOV w4, 8 // w4=2 operaciion "-" encontrada
+    CMP w20, #'/'          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+
+    MOV w4, 9 // w4=2 operaciion "-" encontrada
+    CMP w20, #'&'          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+
+    MOV w4, 10 // w4=2 operaciion "-" encontrada
+    CMP w20, #'|'          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+
+    MOV w4, 11 // w4=2 operaciion "-" encontrada
+    CMP w20, #'~'          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+
+    MOV w4, 12 // w4=2 operaciion "-" encontrada
+    CMP w20, #','          // Compara el carácter con '-'
+    BEQ fin_verificar_intermedia 
+    
     MOV w4, 0
     B fin_verificar_intermedia
     fin_verificar_intermedia:
     RET
+    
+    // Retorna en w4 el tipo de operación encontrada:
+    // 1 = '+', 2 = '-', 3 = '*', 4 = '>', 5 = '<'
 
+    // x0 debe contener la dirección base del comando
+    /*LDRB w3, [x0, w20, SXTW]    // w3 = carácter actual del string
+
+    MOV w4, 1
+    CMP w3, #'+'                // '+'
+    BEQ fin_verificar_op
+
+    MOV w4, 2
+    CMP w3, #'-'                // '-'
+    BEQ fin_verificar_op
+
+    MOV w4, 3
+    CMP w3, #'*'                // '*'
+    BEQ fin_verificar_op
+
+    MOV w4, 4
+    CMP w3, #'>'                // '>'
+    BEQ fin_verificar_op
+
+    MOV w4, 5
+    CMP w3, #'<'
+    BEQ fin_verificar_op
+
+    MOV w4, 0                   // No reconocida
+
+fin_verificar_op:
+    RET
+    */
 imprimirValue:
     // Limpiamos el valor
     LDR x1, =value // Direccion del value
@@ -462,7 +531,7 @@ arithmetic_menu_show:
     cmp w3, '4'
     b.eq division
     cmp w3, '5'
-    b.eq power
+    b.eq power_loop
     cmp w3, '6'
     b.eq change_sign
     cmp w3, '7'
@@ -513,6 +582,12 @@ addition:
     CMP w2, 3
     BEQ hacer_mul*/
     //B ingreso_comando
+    CMP w2, 1
+    BEQ do_suma
+    bl show_error
+    b wait_and_return_arithmetic
+
+do_suma:
     mPrint msg_resultado, lenMsgResultado
     LDR x9, =param1
     LDR x9, [x9]
@@ -560,7 +635,12 @@ subtraction:
     ADR x0, tipo_comando
     LDRB w2, [x0]
     // fin ingresar_comando
-    
+    CMP w2, 2
+    BEQ do_resta
+    bl show_error
+    b wait_and_return_arithmetic
+
+do_resta:
     mPrint msg_resultado, lenMsgResultado
     LDR x9, =param1
     LDR x9, [x9]
@@ -615,6 +695,12 @@ multiplication:
     LDRB w2, [x0]
     // fin ingresar_comando
     //  
+    cmp w2, 3
+    BEQ do_mul
+    bl show_error
+    b wait_and_return_arithmetic
+
+do_mul:
     mPrint msg_resultado, lenMsgResultado
     LDR x9, =param1
     LDR x9, [x9]
@@ -661,6 +747,12 @@ division:
     LDRB w2, [x0]
     // fin ingresar_comando
     //  
+    cmp w2, 8
+    BEQ do_div
+    bl show_error
+    b wait_and_return_arithmetic
+
+do_div:
     mPrint msg_resultado, lenMsgResultado
     LDR x9, =param1
     LDR x9, [x9]
@@ -682,26 +774,122 @@ division_by_zero:
     svc 0
     b wait_and_return_arithmetic
 
-power:
-    bl get_two_numbers
-    mov x19, 1
-    mov x22, 0
 power_loop:
-    cmp x22, x21
-    b.ge power_done
-    mul x19, x19, x20
-    add x22, x22, 1
-    b power_loop
-power_done:
-    bl print_result
+    ldr x25, =comando         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #50          // x27 = contador
+    BL limpiarVariables
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    BL getComando
+    LDR x0, =comando
+    // Apartir de aqui en w20 estara el recorrido del comando ingresado (11234+1230)
+    // El valor de x0 no se debe perder ya que tiene la direccion de memoria del comando
+    // Si en el proceso de lectura del comando se usa x0, se debera de usar la pila para no perder el valor de x0
+    // Este es el primer parametro
+    BL verificarParametro // Se verifica el tipo de parametro (Numero, Celda o Retorno) y guarda el valor del parametro para luego procesarlo
+    CMP w4, 2
+    BEQ exit_program
+    LDR x8, =param1
+    BL parametroNumero
+    BL verificarOperacion
+    ADR x5, tipo_comando
+    STRB w4, [x5]
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    // Este es el segundo parametro
+    BL verificarParametro
+    LDR x8, =param2
+    BL parametroNumero
+    ADR x0, tipo_comando
+    LDRB w2, [x0]
+    // fin ingresar_comando
+    //  
+    
+        
+    CMP w2, 6
+    BEQ do_potencia
+    bl show_error
     b wait_and_return_arithmetic
+    
+    //B ingreso_comando
+    //b _start
+    
+do_potencia:
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+    LDR x10, =param2
+    LDR x10, [x10]
+
+    MOV x0, #1              // Inicializamos el resultado = 1
+    CBZ x10, power_done     // Si exponente == 0, el resultado es 1 y salimos
+power_repeat:
+    MUL x0, x0, x9        // resultado *= base
+    SUB x10, x10, #1      // exponente--
+    CBNZ x10, power_repeat
+
+power_done:
+    BL imprimirValue
+    b wait_and_return_arithmetic
+    
 
 change_sign:
-    bl get_one_number
-    neg x19, x20
-    bl print_result
+    ldr x25, =comando         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #50          // x27 = contador
+    BL limpiarVariables
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    BL getComando
+    LDR x0, =comando
+    // Apartir de aqui en w20 estara el recorrido del comando ingresado (11234+1230)
+    // El valor de x0 no se debe perder ya que tiene la direccion de memoria del comando
+    // Si en el proceso de lectura del comando se usa x0, se debera de usar la pila para no perder el valor de x0
+    // Este es el primer parametro
+    BL verificarParametro // Se verifica el tipo de parametro (Numero, Celda o Retorno) y guarda el valor del parametro para luego procesarlo
+    CMP w4, 2
+    BEQ exit_program
+    LDR x8, =param1
+    BL parametroNumero
+    BL verificarOperacion
+    ADR x5, tipo_comando
+    STRB w4, [x5]
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    // Este es el segundo parametro
+    BL verificarParametro
+    LDR x8, =param2
+    BL parametroNumero
+    ADR x0, tipo_comando
+    LDRB w2, [x0]
+    // fin ingresar_comando
+    //  
+    
+        
+    CMP w2, 7
+    BEQ do_negate
+    bl show_error
     b wait_and_return_arithmetic
 
+do_negate:
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+    // Realizar la operación de negación
+    NEG x0, x9                 // Negar el valor de x9 y almacenar en x0
+
+    // Imprimir el valor resultante
+    BL imprimirValue
+    B wait_and_return_arithmetic
 // Operaciones lógicas
 logic_menu_show:
     mov x0, STDOUT
@@ -732,27 +920,188 @@ logic_menu_show:
     b logic_menu_show
 
 and_operation:
-    bl get_two_numbers
-    and x19, x20, x21
-    bl print_result
+    ldr x25, =comando         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #50          // x27 = contador
+    BL limpiarVariables
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    BL getComando
+    LDR x0, =comando
+    // Apartir de aqui en w20 estara el recorrido del comando ingresado (11234+1230)
+    // El valor de x0 no se debe perder ya que tiene la direccion de memoria del comando
+    // Si en el proceso de lectura del comando se usa x0, se debera de usar la pila para no perder el valor de x0
+    // Este es el primer parametro
+    BL verificarParametro // Se verifica el tipo de parametro (Numero, Celda o Retorno) y guarda el valor del parametro para luego procesarlo
+    CMP w4, 2
+    BEQ exit_program
+    LDR x8, =param1
+    BL parametroNumero
+    BL verificarOperacion
+    ADR x5, tipo_comando
+    STRB w4, [x5]
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    // Este es el segundo parametro
+    BL verificarParametro
+    LDR x8, =param2
+    BL parametroNumero
+    ADR x0, tipo_comando
+    LDRB w2, [x0]
+    // fin ingresar_comando
+    //  
+    cmp w2, 9
+    BEQ do_and
+    bl show_error
+    b wait_and_return_logic
+
+do_and:
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+    LDR x10, =param2
+    LDR x10, [x10]
+    and x0, x9, x10
+    BL imprimirValue
     b wait_and_return_logic
 
 or_operation:
-    bl get_two_numbers
-    orr x19, x20, x21
-    bl print_result
+    ldr x25, =comando         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #50          // x27 = contador
+    BL limpiarVariables
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    BL getComando
+    LDR x0, =comando
+    // Apartir de aqui en w20 estara el recorrido del comando ingresado (11234+1230)
+    // El valor de x0 no se debe perder ya que tiene la direccion de memoria del comando
+    // Si en el proceso de lectura del comando se usa x0, se debera de usar la pila para no perder el valor de x0
+    // Este es el primer parametro
+    BL verificarParametro // Se verifica el tipo de parametro (Numero, Celda o Retorno) y guarda el valor del parametro para luego procesarlo
+    CMP w4, 2
+    BEQ exit_program
+    LDR x8, =param1
+    BL parametroNumero
+    BL verificarOperacion
+    ADR x5, tipo_comando
+    STRB w4, [x5]
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    // Este es el segundo parametro
+    BL verificarParametro
+    LDR x8, =param2
+    BL parametroNumero
+    ADR x0, tipo_comando
+    LDRB w2, [x0]
+    // fin ingresar_comando
+    //  
+    cmp w2, 10
+    BEQ do_or
+    bl show_error
+    b wait_and_return_logic
+
+do_or:
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+    LDR x10, =param2
+    LDR x10, [x10]
+    orr x0, x9, x10
+    BL imprimirValue
     b wait_and_return_logic
 
 not_operation:
-    bl get_one_number
-    mvn x19, x20
-    bl print_result
-    b wait_and_return_logic
+        // Limpiar buffer de comando
+    LDR x25, =comando
+    MOV x26, #0
+    MOV x27, #50
+    BL limpiarVariables
+
+    // Leer comando (un solo número, ej: "4")
+    BL getComando
+    LDR x0, =comando
+
+    // Verificar tipo de parámetro
+    BL verificarParametro
+    CMP w4, 2              // ¿Es retorno? Si es así, salir
+    BEQ exit_program
+
+    // Convertir a número
+    LDR x8, =param1
+    BL parametroNumero     // param1 ya contiene el número en memoria
+
+    // Cargar el valor de param1
+    
+    LDR x9, =param1
+    LDR x9, [x9]           // x9 = número ingresado
+    
+    // Aplicar NOT bit a bit
+    MVN x0, x9             // x0 = ~x9
+    
+    // Imprimir resultado
+    BL imprimirValue
+
+    B wait_and_return_logic
+
 
 xor_operation:
-    bl get_two_numbers
-    eor x19, x20, x21
-    bl print_result
+    ldr x25, =comando         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #50          // x27 = contador
+    BL limpiarVariables
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    BL getComando
+    LDR x0, =comando
+    // Apartir de aqui en w20 estara el recorrido del comando ingresado (11234+1230)
+    // El valor de x0 no se debe perder ya que tiene la direccion de memoria del comando
+    // Si en el proceso de lectura del comando se usa x0, se debera de usar la pila para no perder el valor de x0
+    // Este es el primer pamPrint msg_resultado, lenMsgResultado
+    BL verificarParametro // Se verifica el tipo de parametro (Numero, Celda o Retorno) y guarda el valor del parametro para luego procesarlo
+    CMP w4, 2
+    BEQ exit_program
+    LDR x8, =param1
+    BL parametroNumero
+    BL verificarOperacion
+    ADR x5, tipo_comando
+    STRB w4, [x5]
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    // Este es el segundo parametro
+    BL verificarParametro
+    LDR x8, =param2
+    BL parametroNumero
+    ADR x0, tipo_comando
+    LDRB w2, [x0]
+    // fin ingresar_comando
+    //  
+    cmp w2, 11
+    BEQ do_xor
+    bl show_error
+    b wait_and_return_logic
+    
+do_xor:
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+    LDR x10, =param2
+    LDR x10, [x10]
+    eor x0, x9, x10
+    BL imprimirValue
+    
     b wait_and_return_logic
 
 // Manipulación de bits
@@ -781,14 +1130,144 @@ bits_menu_show:
     b bits_menu_show
 
 shift_operations:
-    bl get_shift_operation
-    bl print_result
-    b wait_and_return_bits
+        // Limpiar buffers
+    // impiar buffer: poner 0 en las 50 posiciones
+    ldr x25, =comando         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #50          // x27 = contador
+    BL limpiarVariables
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    BL getComando
+    LDR x0, =comando
+    // Apartir de aqui en w20 estara el recorrido del comando ingresado (11234+1230)
+    // El valor de x0 no se debe perder ya que tiene la direccion de memoria del comando
+    // Si en el proceso de lectura del comando se usa x0, se debera de usar la pila para no perder el valor de x0
+    // Este es el primer parametro
+    BL verificarParametro // Se verifica el tipo de parametro (Numero, Celda o Retorno) y guarda el valor del parametro para luego procesarlo
+    CMP w4, 2
+    BEQ exit_program
+    LDR x8, =param1
+    BL parametroNumero
+    BL verificarOperacion
+    ADR x5, tipo_comando
+    STRB w4, [x5]
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    // Este es el segundo parametro
+    BL verificarParametro
+    LDR x8, =param2
+    BL parametroNumero
+    ADR x0, tipo_comando
+    LDRB w2, [x0]
+    // Imprimir mensaje antes del resultado (opcional)
+    //mPrint msg_resultado, lenMsgResultado
+    
+    // Realizar operación LSL o LSR según tipo_comando
+    CMP w2, 4
+    BEQ do_lsr
+
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+
+    LDR x10, =param2
+    LDR x10, [x10]
+
+    
+    LSL x0, x9, x10     // si tipo_comando = 1 (>)
+    B done
+
+do_lsr:
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+
+    LDR x10, =param2
+    LDR x10, [x10]
+    LSR x0, x9, x10     // si tipo_comando = 2 (<)
+
+done:
+    BL imprimirValue
+    B wait_and_return_bits
+
 
 rotate_operations:
-    bl get_rotate_operation
-    bl print_result
-    b wait_and_return_bits
+        // Limpiar buffers
+    // impiar buffer: poner 0 en las 50 posiciones
+    ldr x25, =comando         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #50          // x27 = contador
+    BL limpiarVariables
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    BL getComando
+    LDR x0, =comando
+    // Apartir de aqui en w20 estara el recorrido del comando ingresado (11234+1230)
+    // El valor de x0 no se debe perder ya que tiene la direccion de memoria del comando
+    // Si en el proceso de lectura del comando se usa x0, se debera de usar la pila para no perder el valor de x0
+    // Este es el primer parametro
+    BL verificarParametro // Se verifica el tipo de parametro (Numero, Celda o Retorno) y guarda el valor del parametro para luego procesarlo
+    CMP w4, 2
+    BEQ exit_program
+    LDR x8, =param1
+    BL parametroNumero
+    BL verificarOperacion
+    ADR x5, tipo_comando
+    STRB w4, [x5]
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    // Este es el segundo parametro
+    BL verificarParametro
+    LDR x8, =param2
+    BL parametroNumero
+    ADR x0, tipo_comando
+    LDRB w2, [x0]
+    // Imprimir mensaje antes del resultado (opcional)
+    //mPrint msg_resultado, lenMsgResultado
+    
+    // Realizar operación LSL o LSR según tipo_comando
+    CMP w2, 5
+    BEQ do_rol
+
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+
+    LDR x10, =param2
+    LDR x10, [x10]
+
+    
+    ROR x0, x9, x10    
+    B doneR
+
+do_rol:
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+
+    LDR x10, =param2
+    LDR x10, [x10]
+    MOV x3, #64
+    SUB x4, x3, x10       // x4 = 64 - x10
+
+    LSL x5, x9, x10       // parte izquierda
+    LSR x6, x9, x4        // parte derecha
+
+    ORR x0, x5, x6        // x0 = resultado del ROL
+
+
+doneR:
+    BL imprimirValue
+    B wait_and_return_bits
 
 // Operaciones estadísticas
 stats_menu_show:
@@ -818,10 +1297,72 @@ stats_menu_show:
     b stats_menu_show
 
 average_operation:
-    bl get_number_list
-    // x20 = puntero a números, x21 = cantidad
-    mov x22, 0   // suma
-    mov x23, 0   // contador
+    // Limpiar buffers
+    ldr x25, =comando         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #50          // x27 = contador
+    BL limpiarVariables
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    BL getComando
+    LDR x0, =comando
+    // Apartir de aqui en w20 estara el recorrido del comando ingresado (11234+1230)
+    // El valor de x0 no se debe perder ya que tiene la direccion de memoria del comando
+    // Si en el proceso de lectura del comando se usa x0, se debera de usar la pila para no perder el valor de x0
+    // Este es el primer parametro
+    BL verificarParametro // Se verifica el tipo de parametro (Numero, Celda o Retorno) y guarda el valor del parametro para luego procesarlo
+    CMP w4, 2
+    BEQ exit_program
+    LDR x8, =param1
+    BL parametroNumero
+    BL verificarOperacion
+    ADR x5, tipo_comando
+    STRB w4, [x5]
+    ldr x25, =num         // x25 = dirección base del buffer
+    mov x26, #0           // x26 = byte a escribir (0)
+    mov x27, #22          // x27 = contador
+    BL limpiarVariables
+    // Este es el segundo parametro
+    BL verificarParametro
+    LDR x8, =param2
+    BL parametroNumero
+    ADR x0, tipo_comando
+    LDRB w2, [x0]
+    /*CMP w2, 1
+    BEQ hacer_suma
+    CMP w2, 2
+    BEQ hacer_resta
+    CMP w2, 3
+    BEQ hacer_mul*/
+    //B ingreso_comando
+    CMP w2, 12
+    BEQ do_sumaProm
+    bl show_error
+    b wait_and_return_arithmetic
+
+do_sumaProm:
+    mPrint msg_resultado, lenMsgResultado
+    LDR x9, =param1
+    LDR x9, [x9]
+    LDR x10, =param2
+    LDR x10, [x10]
+    ADD x0, x9, x10
+    //BL imprimirValue
+    //B ingreso_comando
+    //b _start
+    
+    //b wait_and_return_arithmetic
+    b calcular_promedio
+
+calcular_promedio:
+    mov x7, #2
+    sdiv x0, x0, x7       // promedio = suma / cantidad
+    BL imprimirValue
+    b wait_and_return_stats
+
+
 average_loop:
     cmp x23, x21
     b.ge average_done
@@ -960,6 +1501,13 @@ memory_error:
     svc 0
     b memory_loop
 
+show_error:
+    mov x0, STDOUT
+    ldr x1, =error_msg
+    ldr x2, =error_msg_len
+    mov x8, SYS_WRITE
+    svc 0
+    RET
 // Funciones de utilidad
 get_two_numbers:
     stp x29, x30, [sp, -16]!
